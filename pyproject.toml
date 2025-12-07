@@ -3,5 +3,21 @@ name = "jobhelperagents"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "agno>=2.3.4",
+    "fastapi[standard]>=0.123.4",
+    "google-auth>=2.43.0",
+    "google-auth-httplib2>=0.2.1",
+    "google-auth-oauthlib>=1.2.2",
+    "google-genai>=1.52.0",
+    "gspread>=6.2.1",
+    "jobspy",
+    "mcp>=1.23.0",
+    "openai>=2.8.1",
+    "openrouter>=0.0.19",
+    "pandas>=2.3.3",
+    "playwright>=1.56.0",
+    "playwright-stealth>=2.0.0",
+    "sqlalchemy>=2.0.44",
+]
