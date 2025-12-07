@@ -1,0 +1,30 @@
+{
+  "adapters": {
+    "powershell": {
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& { $ErrorActionPreference='Stop'; $pses = Get-Module -ListAvailable PowerShellEditorServices | Select-Object -First 1; if (-not $pses) { Write-Error 'PowerShellEditorServices module not found. Install with Install-Module PowerShellEditorServices'; exit 1 }; $script = Join-Path $pses.ModuleBase 'Start-EditorServices.ps1'; & $script -HostName 'Zed' -HostProfileId 'Zed' -HostVersion '1.0.0' -BundledModulesPath $pses.ModuleBase -EnableConsoleRepl -LogPath (Join-Path $env:TEMP 'pses.log') -SessionDetailsPath (Join-Path $env:TEMP 'pses.session.json') -FeatureFlags @() -Stdio }"
+      ]
+    }
+  },
+  "configurations": [
+    {
+      "name": "PowerShell: Current File",
+      "adapter": "powershell",
+      "filetypes": ["powershell", "ps1"],
+      "configuration": {
+        "request": "launch",
+        "type": "PowerShell",
+        "script": "${file}",
+        "cwd": "${workspaceFolder}",
+        "args": [],
+        "stopOnEntry": true
+      }
+    }
+  ]
+}
