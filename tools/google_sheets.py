@@ -15,17 +15,17 @@ class GoogleSheetsTools(Toolkit):
     Provides methods to add jobs, retrieve new jobs, and update job statuses.
     """
 
-    def __init__(self, credentials_path: str, spreadsheet_name: str):
+    def __init__(self, credentials_path: str, spreadsheet_id: str):
         """
         Initialize the GoogleSheetsTools toolkit.
 
         Args:
             credentials_path: Path to the Google service account credentials JSON file
-            spreadsheet_name: Name of the Google Sheet to use for job tracking
+            spreadsheet_id: ID of the Google Sheet to use for job tracking
         """
         super().__init__(name="google_sheets_tools")
         self.credentials_path = credentials_path
-        self.spreadsheet_name = spreadsheet_name
+        self.spreadsheet_id = spreadsheet_id
         self.gc: Optional[gspread.Client] = None
         self.sh: Optional[Spreadsheet] = None
         self._authenticate()
@@ -46,8 +46,8 @@ class GoogleSheetsTools(Toolkit):
         """
         try:
             self.gc = gspread.service_account(filename=self.credentials_path)
-            self.sh = self.gc.open(self.spreadsheet_name)
-            logger.info(f"Successfully connected to Sheet: {self.spreadsheet_name}")
+            self.sh = self.gc.open_by_key(self.spreadsheet_id)
+            logger.info(f"Successfully connected to Sheet: {self.spreadsheet_id}")
             return True
         except FileNotFoundError:
             logger.error(
@@ -56,7 +56,7 @@ class GoogleSheetsTools(Toolkit):
             )
         except SpreadsheetNotFound:
             logger.error(
-                f"Spreadsheet '{self.spreadsheet_name}' not found. "
+                f"Spreadsheet '{self.spreadsheet_id}' not found. "
                 "Make sure the sheet exists and is shared with your service account."
             )
         except Exception as e:
@@ -80,20 +80,24 @@ class GoogleSheetsTools(Toolkit):
         """Ensure the worksheet has the expected headers."""
         expected_headers = [
             "Date",
-            "Company",
+            "Site",
             "Role",
-            "Location",
+            "Company",
+            "Type",
+            "Posting Link",
             "URL",
             "Status",
+            "Application Date",
+            "Resume",
+            "Cover Letter",
             "Notes",
-            "Source",
         ]
         try:
             first_row = worksheet.row_values(1)
             if not first_row:
                 # Sheet is empty, add headers
                 worksheet.append_row(expected_headers)
-                logger.info("Added headers to empty sheet")
+                logger.info("Added headers to empty sheet") fb
         except Exception as e:
             logger.debug(f"Could not check/add headers: {e}")
 
