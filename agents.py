@@ -1,11 +1,6 @@
-import os
-
 from agno.agent import Agent
-from agno.team import Team
 
-# from agno.db.sqlite import SqliteDb
-# from agno.tools.mcp import MCPTools
-from models import models
+import models
 from tools.google_sheets import GoogleSheetsTools
 from tools.job_spy_tool import JobSpyTools
 
@@ -14,9 +9,13 @@ class JobHelperAgent(Agent):
     pass
 
 
+JobHelperAgents_GoogleSheetsId = "1AZXQkRhtq_oDsCVoQqSOcK0ithQn13AYZaJdMRKI-WI"
+# https://docs.google.com/spreadsheets/d/1AZXQkRhtq_oDsCVoQqSOcK0ithQn13AYZaJdMRKI-WI/edit?gid=1052401886#gid=1052401886
+
+
 # Initialize Tools
 gs_tools = GoogleSheetsTools(
-    credentials_path="credentials.json", spreadsheet_name="Job_Hunt_2025"
+    credentials_path="credentials.json", spreadsheet_id=JobHelperAgents_GoogleSheetsId
 )
 spy_tools = JobSpyTools()
 
@@ -24,7 +23,7 @@ spy_tools = JobSpyTools()
 job_finder_agent = JobHelperAgent(
     name="Job Finder",
     role="Source Jobs",
-    model=models["openrouter_grok4_1_fast"],
+    model=models.glm_4_5_air_model,
     tools=[
         spy_tools,
         gs_tools,
@@ -41,7 +40,7 @@ job_finder_agent = JobHelperAgent(
 
 resume_tailor_agent = JobHelperAgent(
     name="Targetted Resume and Cover Letter Writer",
-    model=models["openrouter_grok4_1_fast"],
+    model=models.glm_4_5_air_model,
     tools=[gs_tools],
     instructions=[
         "Check the Google Sheet for jobs with status 'New'.",
@@ -65,21 +64,3 @@ resume_tailor_agent = JobHelperAgent(
 #     add_history_to_context=True,  # Remember previous messages
 #     markdown=True,
 # )
-
-job_helper_team = Team(
-    name="Job Helper Team",
-    members=[job_finder_agent, resume_tailor_agent],
-    model=models["openrouter_grok4_1_fast"],
-    instructions=[
-        "You manage a job hunting agency.",
-        "Step 1: Ask the Scout to find jobs based on the user's query.",
-        "Step 2: Ask the Writer to process any new jobs found.",
-        "Always report back to the user with a summary of actions taken.",
-    ],
-)
-
-if __name__ == "__main__":
-    # Test run
-    job_helper_team.print_response(
-        "Find me 3 Senior Python Developer roles in Austin, TX", stream=True
-    )
