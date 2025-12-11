@@ -97,7 +97,7 @@ class GoogleSheetsTools(Toolkit):
             if not first_row:
                 # Sheet is empty, add headers
                 worksheet.append_row(expected_headers)
-                logger.info("Added headers to empty sheet") fb
+                logger.info("Added headers to empty sheet")
         except Exception as e:
             logger.debug(f"Could not check/add headers: {e}")
 
