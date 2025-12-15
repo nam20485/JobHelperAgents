@@ -1,14 +1,33 @@
 import os
 
 from agno.models.google import Gemini
+from agno.models.openai import OpenAIChat
 from agno.models.openrouter import OpenRouter
 
-gemini_3_model = Gemini(
-    id="gemini-3-pro-preview",
-)
+gemini_3_model = Gemini(id="gemini-3-pro-preview")
 gemini_2_5_flash_model = Gemini(id="gemini-2.5-flash")
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_AGNO_API_KEY", "")
+
+MODEL_STUDIO_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+MODEL_STUDIO_API_KEY = os.getenv("MODEL_STUDIO_API_KEY", "")
+
+KIMI_CLI_API_KEY = os.getenv("KIMI_CLI_API_KEY", "")
+KIMI_CLI_BASE_URL = "https://api.kimi.ai/v1"
+
+# KIMI model (Moonshot AI)
+kimi_model_direct = OpenAIChat(
+    id="moonshot-v1-8k",
+    api_key=KIMI_CLI_API_KEY,
+    base_url=KIMI_CLI_BASE_URL,
+)
+
+# Model Studio model (DashScope/Alibaba Cloud)
+model_studio_model = OpenAIChat(
+    id="qwen-plus",
+    api_key=MODEL_STUDIO_API_KEY,
+    base_url=MODEL_STUDIO_BASE_URL,
+)
 
 
 class OpenRouterModel(OpenRouter):

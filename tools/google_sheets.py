@@ -15,7 +15,13 @@ class GoogleSheetsTools(Toolkit):
     Provides methods to add jobs, retrieve new jobs, and update job statuses.
     """
 
-    def __init__(self, credentials_path: str, spreadsheet_id: str):
+    def __init__(
+        self,
+        credentials_path: str,
+        spreadsheet_id: str,
+        resume_example_id: str,
+        cover_letter_example_id: str,
+    ):
         """
         Initialize the GoogleSheetsTools toolkit.
 
@@ -26,6 +32,8 @@ class GoogleSheetsTools(Toolkit):
         super().__init__(name="google_sheets_tools")
         self.credentials_path = credentials_path
         self.spreadsheet_id = spreadsheet_id
+        self.resume_example_id = resume_example_id
+        self.cover_letter_example_id = cover_letter_example_id
         self.gc: Optional[gspread.Client] = None
         self.sh: Optional[Spreadsheet] = None
         self._authenticate()
@@ -80,13 +88,12 @@ class GoogleSheetsTools(Toolkit):
         """Ensure the worksheet has the expected headers."""
         expected_headers = [
             "Date",
-            "Site",
             "Role",
             "Company",
-            "Type",
+            "Location",
             "Posting Link",
-            "URL",
             "Status",
+            "Source",
             "Application Date",
             "Resume",
             "Cover Letter",
@@ -145,13 +152,16 @@ class GoogleSheetsTools(Toolkit):
             worksheet.append_row(
                 [
                     date_found,
-                    company,
                     role,
+                    company,
                     location,
                     url,
-                    "New",
-                    notes,
-                    source,
+                    "Found",  # status
+                    "",  # source
+                    "",  # application date
+                    "",  # resume
+                    "",  # cover letter
+                    "",  # notes
                 ]
             )
             return f"Successfully added '{role}' at '{company}' to the sheet."
