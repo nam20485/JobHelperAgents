@@ -3,3 +3,5 @@
 __pycache__/
 tools/__pycache__/
 credentials.json
+.qoder\rules\openmemory.md
+AGENTS.md
