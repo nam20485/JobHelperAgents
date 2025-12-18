@@ -37,7 +37,7 @@ job_finder_agent = JobHelperAgent(
     instructions=[
         "Use `find_jobs` to search for roles. Keep `results_wanted` to 10 to avoid rate limits.",
         "For each job found, check if it exists in the sheet using `check_job_exists`.",
-        "Add valid jobs to the Google Sheet using `add_job`.",
+        "Add valid jobs to the Google Sheet using `add_job`. Ensure you pass the `rating` from the found job.",
     ],
     # db=SqliteDb(db_file="agent.db"),  # Store conversations
     add_history_to_context=True,  # Remember previous messages
@@ -49,7 +49,7 @@ resume_tailor_agent = JobHelperAgent(
     model=models.glm_4_5_air_model,
     tools=[gs_tools],
     instructions=[
-        "Check the Google Sheet for jobs with status 'Found'.",
+        "Use `get_new_jobs` to find jobs with status 'Found' or 'New'.",
         "Update status to 'Tailoring' when you begin processing.",
         "Update status to 'Tailored' when you finish processing.",
     ],
@@ -59,7 +59,7 @@ resume_tailor_agent = JobHelperAgent(
 )
 
 job_applicant_agent = JobHelperAgent(
-    model=models.kimi_model,
+    model=models.gemini_2_5_flash_model,
     tools=[gs_tools],
     instructions=[
         "You orchestrate a team of agents to find and process job applications.",

@@ -4,8 +4,20 @@ from agno.models.google import Gemini
 from agno.models.openai import OpenAIChat
 from agno.models.openrouter import OpenRouter
 
-gemini_3_model = Gemini(id="gemini-3-pro-preview")
-gemini_2_5_flash_model = Gemini(id="gemini-2.5-flash")
+CLOUD_CODE_GEMINI_CODE_ASSIST_API_KEY = os.getenv("CLOUD_CODE_GEMINI_CODE_ASSIST_API_KEY", "")
+
+gemini_3_model = Gemini(
+    id="gemini-1.5-pro",
+    vertexai=True,
+    project="gemini-code-assist",
+    location="us-central1"
+)
+gemini_2_5_flash_model = Gemini(
+    id="gemini-1.5-flash",
+    vertexai=True,
+    project="gemini-code-assist",
+    location="us-central1"
+)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_AGNO_API_KEY", "")
 
@@ -14,6 +26,15 @@ MODEL_STUDIO_API_KEY = os.getenv("MODEL_STUDIO_API_KEY", "")
 
 KIMI_CLI_API_KEY = os.getenv("KIMI_CLI_API_KEY", "")
 KIMI_CLI_BASE_URL = "https://api.kimi.ai/v1"
+
+MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1"
+MOONSHOT_API_KEY = os.getenv("MOONSHOT_API_KEY", "")
+
+moonshot_kimi_k2_model = OpenAIChat(
+    id="kimi-k2-0905-preview",
+    api_key=MOONSHOT_API_KEY,
+    base_url=MOONSHOT_BASE_URL,
+)
 
 # KIMI model (Moonshot AI)
 kimi_model_direct = OpenAIChat(

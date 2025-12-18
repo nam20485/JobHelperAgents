@@ -97,6 +97,7 @@ class GoogleSheetsTools(Toolkit):
             "Application Date",
             "Resume",
             "Cover Letter",
+            "Rating",
             "Notes",
         ]
         try:
@@ -115,6 +116,7 @@ class GoogleSheetsTools(Toolkit):
         url: str,
         location: str = "Remote",
         source: str = "",
+        rating: int = 0,
         notes: str = "",
     ) -> str:
         """
@@ -127,6 +129,7 @@ class GoogleSheetsTools(Toolkit):
             url: URL to the job posting
             location: Job location (default: "Remote")
             source: Where the job was found (e.g., "linkedin", "glassdoor")
+            rating: Calculated job rating score (default: 0)
             notes: Any additional notes about the job
 
         Returns:
@@ -161,6 +164,7 @@ class GoogleSheetsTools(Toolkit):
                     "",  # application date
                     "",  # resume
                     "",  # cover letter
+                    rating,  # rating
                     "",  # notes
                 ]
             )
@@ -171,7 +175,7 @@ class GoogleSheetsTools(Toolkit):
 
     def get_new_jobs(self) -> str:
         """
-        Retrieves all jobs with status 'New'.
+        Retrieves all jobs with status 'Found' or 'New'.
         Use this to find jobs that need resume tailoring or application.
 
         Returns:
@@ -183,7 +187,11 @@ class GoogleSheetsTools(Toolkit):
 
         try:
             all_records = worksheet.get_all_records()
-            new_jobs = [job for job in all_records if job.get("Status") == "New"]
+            new_jobs = [
+                job
+                for job in all_records
+                if job.get("Status") == "New" or job.get("Status") == "Found"
+            ]
             return json.dumps({"count": len(new_jobs), "jobs": new_jobs}, indent=2)
         except Exception as e:
             logger.error(f"Error retrieving jobs: {e}")

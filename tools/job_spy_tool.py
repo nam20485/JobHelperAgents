@@ -40,6 +40,17 @@ class JobSpyTools(Toolkit):
 
     SUPPORTED_SITES = [site.value for site in JobSite]
 
+    # Condensed list from 2024/2025 reports (Glassdoor, Forbes, etc.)
+    BEST_PLACES_TO_WORK = {
+        "google", "zappos", "bluecore", "airbnb", "costco", "zoom", "ikea", "cisco", "ibm", 
+        "squarespace", "warby parker", "healthpeak", "mighty citizen", "supplyforce", "pultegroup",
+        "progressive insurance", "dow", "delta", "adobe", "boston scientific", "canva", "capital one",
+        "chase", "deloitte", "epsilon", "ey", "hyundai", "intuit", "pfizer", "sap", "starbucks",
+        "verizon", "motorola solutions", "siemens", "omnea", "nvidia", "microsoft", "bain & company",
+        "atlassian", "salesforce", "mathworks", "lyulfe", "procore", "servicenow", "hubspot",
+        "workday", "fidelity investments", "ally", "mastercard", "apple", "meta"
+    }
+
     def __init__(self, headless: bool = True, timeout: int = 30000):
         """
         Initialize the JobSpyTools toolkit.
@@ -57,6 +68,170 @@ class JobSpyTools(Toolkit):
 
         # Register the tools the Agent can access
         self.register(self.find_jobs)
+
+    def _calculate_salary_penalty(self, salary_text: str) -> int:
+        """
+        Calculate penalty points based on salary.
+        -1 point for every $10k less than $200k base salary.
+        """
+        if not salary_text:
+            return 0  # No data, no emoji, also no penalty?? Or default penalty? Let's say 0.
+
+        # Normalize text
+        text = salary_text.lower().replace(",", "").replace("$", "")
+        
+        # Extract numbers (simple regex for "120k", "120000", "120-150k")
+        # Multipliers
+        multiplier = 1
+        if "k" in text:
+            multiplier = 1000
+            text = text.replace("k", "")
+        
+        # Find all numbers
+        import re
+        matches = re.findall(r"(\d+(?:\.\d+)?)", text)
+        if not matches:
+            return 0
+
+        try:
+            # Take the first number found as the base/lower bound
+            # e.g. "120 - 150" -> 120
+            # e.g. "120000" -> 120000
+            # e.g. "80 - 90/hr" -> Handling hourly is tough without more context.
+            # Assuming annual if > 1000, else hourly?
+            
+            val = float(matches[0]) * multiplier
+            
+            # Heuristic: If hourly (< 200), convert to annual (x 2000)
+            if val < 200:
+                val *= 2000
+            
+            # Target is 200k
+            target = 200000
+            if val >= target:
+                return 0
+            
+            # Deficit
+            deficit = target - val
+            # Points = deficit / 10000
+            points = int(deficit / 10000)
+            return -points
+            
+        except Exception:
+            return 0
+
+    def _is_best_place_to_work(self, company_name: str) -> bool:
+        """Check if company is in the best places to work list."""
+        if not company_name:
+            return False
+            
+        name = company_name.lower().strip()
+        
+        # Exact match or substring match? 
+        # "Google Inc" vs "Google"
+        # Let's check if any key in set is a substring of the input name, or vice versa
+        
+        for best_company in self.BEST_PLACES_TO_WORK:
+            # Check exact or word boundary match would be better, but simple substring for now
+            if best_company in name:
+                return True
+        return False
+
+    def _is_recent_job(self, date_text: str) -> bool:
+        """
+        Check if job was posted within the last 3 days.
+        Hands relative times ("2 days ago", "just now") and ISO dates.
+        """
+        if not date_text:
+            return False
+            
+        text = date_text.lower()
+        
+        # Immediate/Very recent
+        if any(x in text for x in ["today", "just", "hour", "minute", "second", "new"]):
+            return True
+            
+        # Check specific day counts
+        import re
+        # Match "1 day", "2 days", "3d", "2d"
+        # If it says "10 days", we want to know it's > 3
+        
+        # Regex for "N day" or "Nd"
+        match = re.search(r"(\d+)\s*d", text)
+        if match:
+            days = int(match.group(1))
+            return days <= 3
+            
+        return False
+
+    def calculate_rating(self, job: dict) -> int:
+        """
+        Calculate job rating based on:
+        +1: Easy Apply (not yet scraped reliably, defaulting 0)
+        +1: Contract
+        +1: Remote
+        +1: C# listed
+        +1: C++ listed
+        +1: Posted within 3 days
+        +1: Best Places to Work
+        -1: Full Onsite
+        -1 per $10k < $200k salary
+        """
+        score = 0
+        
+        # Text fields
+        title = job.get("title", "").lower()
+        snippet = job.get("snippet", "").lower() # Indeed has snippets
+        location = job.get("location", "").lower()
+        # combine for keyword search
+        full_text = f"{title} {snippet}"
+        
+        # Positive Attributes
+        # Easy Apply - placeholder
+        if job.get("easy_apply"):
+            score += 1
+            
+        # Recent Job (< 3 days)
+        if self._is_recent_job(job.get("date_posted", "")):
+            score += 1
+
+        # Best Places to Work
+        if self._is_best_place_to_work(job.get("company", "")):
+             score += 1
+
+        # Contract
+        # Check job type or title
+        # job_type arg passed to search isn't saved in job dict usually, but we can check title
+        if "contract" in title or "contract" in snippet:
+            score += 1
+            
+        # Remote
+        is_remote = False
+        if "remote" in location or job.get("remote") is True:
+            score += 1
+            is_remote = True
+            
+        # C#
+        if "c#" in full_text or "c sharp" in full_text:
+            score += 1
+            
+        # C++
+        if "c++" in full_text or "cpp" in full_text:
+            score += 1
+            
+        # Negative Attributes
+        # Full Onsite (not hybrid, not remote)
+        # If matches "onsite" or logic implies it? 
+        # Easier: If not remote and not hybrid -> Onsite
+        is_hybrid = "hybrid" in location
+        if not is_remote and not is_hybrid:
+            score -= 1
+            
+        # Salary Penalty
+        salary_text = job.get("salary", "")
+        score += self._calculate_salary_penalty(salary_text)
+        
+        return score
 
     def _ensure_browsers_installed(self) -> None:
         """
@@ -935,8 +1110,17 @@ class JobSpyTools(Toolkit):
                 unique_jobs.append(job)
                 if len(unique_jobs) >= results_wanted:
                     break
+        
+        # Calculate ratings for unique jobs
+        rated_jobs = []
+        for job in unique_jobs:
+            job["rating"] = self.calculate_rating(job)
+            if job["rating"] > 1:
+                rated_jobs.append(job)
+        
+        unique_jobs = rated_jobs
 
-        logger.info(f"Returning {len(unique_jobs)} unique jobs")
+        logger.info(f"Returning {len(unique_jobs)} unique jobs (filtered rating > 1)")
 
         return json.dumps(
             {
