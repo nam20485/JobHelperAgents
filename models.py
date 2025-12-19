@@ -9,13 +9,13 @@ CLOUD_CODE_GEMINI_CODE_ASSIST_API_KEY = os.getenv("CLOUD_CODE_GEMINI_CODE_ASSIST
 gemini_3_model = Gemini(
     id="gemini-1.5-pro",
     vertexai=True,
-    project="gemini-code-assist",
+    project_id="gemini-code-assist",
     location="us-central1"
 )
 gemini_2_5_flash_model = Gemini(
     id="gemini-1.5-flash",
     vertexai=True,
-    project="gemini-code-assist",
+    project_id="gemini-code-assist",
     location="us-central1"
 )
 

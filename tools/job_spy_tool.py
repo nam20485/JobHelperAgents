@@ -959,6 +959,8 @@ class JobSpyTools(Toolkit):
     # Main Search Method
     # =========================================================================
 
+    MIN_JOB_RATING = 0
+
     def find_jobs(
         self,
         search_term: str,
@@ -1084,6 +1086,7 @@ class JobSpyTools(Toolkit):
                             )
 
                         all_jobs.extend(site_jobs)
+                        ##################################################
                         logger.info(f"Found {len(site_jobs)} jobs from {site}")
 
                         # Delay between sites
@@ -1111,16 +1114,20 @@ class JobSpyTools(Toolkit):
                 if len(unique_jobs) >= results_wanted:
                     break
         
+        MIN_JOB_RATING = 0
+
         # Calculate ratings for unique jobs
         rated_jobs = []
         for job in unique_jobs:
             job["rating"] = self.calculate_rating(job)
-            if job["rating"] > 1:
+            if job["rating"] >= MIN_JOB_RATING:
                 rated_jobs.append(job)
+            else:
+                logger.info(f"Skipping job {job} (rating < {MIN_JOB_RATING})")
         
         unique_jobs = rated_jobs
 
-        logger.info(f"Returning {len(unique_jobs)} unique jobs (filtered rating > 1)")
+        logger.info(f"Returning {len(unique_jobs)} unique jobs (filtered rating >= {MIN_JOB_RATING})")
 
         return json.dumps(
             {

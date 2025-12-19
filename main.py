@@ -5,7 +5,7 @@ def main():
     print("Hello from jobhelperagents!")
     # Test run
     job_helper_team.print_response(
-        "Find me 6 Senior Software Engineer, backend or embedded, roles in Seattle, WA", stream=True
+        "Find me 10 Senior Software Engineer, backend or embedded, roles in Seattle, WA", stream=True
     )
 
 

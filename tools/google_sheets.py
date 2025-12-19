@@ -1,3 +1,4 @@
+import io
 import json
 from datetime import datetime
 from typing import Optional
@@ -5,6 +6,8 @@ from typing import Optional
 import gspread
 from agno.tools import Toolkit
 from agno.utils.log import logger
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 from gspread import Spreadsheet, Worksheet
 from gspread.exceptions import SpreadsheetNotFound
 
@@ -36,6 +39,8 @@ class GoogleSheetsTools(Toolkit):
         self.cover_letter_example_id = cover_letter_example_id
         self.gc: Optional[gspread.Client] = None
         self.sh: Optional[Spreadsheet] = None
+        self.docs_service = None
+        self.drive_service = None
         self._authenticate()
 
         # Register the tools the Agent can access
@@ -44,6 +49,8 @@ class GoogleSheetsTools(Toolkit):
         self.register(self.update_job_status)
         self.register(self.get_all_jobs)
         self.register(self.check_job_exists)
+        self.register(self.read_google_doc)
+        self.register(self.read_pdf)
 
     def _authenticate(self) -> bool:
         """
@@ -55,6 +62,23 @@ class GoogleSheetsTools(Toolkit):
         try:
             self.gc = gspread.service_account(filename=self.credentials_path)
             self.sh = self.gc.open_by_key(self.spreadsheet_id)
+            
+            # Authenticate for Docs/Drive using the same credentials
+            # gspread handles the auth wrapper, we can extract it or reload
+            # Simplest is to reload using google.oauth2
+            from google.oauth2 import service_account
+            
+            creds = service_account.Credentials.from_service_account_file(
+                self.credentials_path,
+                scopes=[
+                    "https://www.googleapis.com/auth/spreadsheets",
+                    "https://www.googleapis.com/auth/drive",
+                    "https://www.googleapis.com/auth/documents.readonly"
+                ]
+            )
+            self.docs_service = build("docs", "v1", credentials=creds)
+            self.drive_service = build("drive", "v3", credentials=creds)
+
             logger.info(f"Successfully connected to Sheet: {self.spreadsheet_id}")
             return True
         except FileNotFoundError:
@@ -92,12 +116,12 @@ class GoogleSheetsTools(Toolkit):
             "Company",
             "Location",
             "Posting Link",
+            "Rating",
             "Status",
             "Source",
             "Application Date",
             "Resume",
             "Cover Letter",
-            "Rating",
             "Notes",
         ]
         try:
@@ -115,6 +139,7 @@ class GoogleSheetsTools(Toolkit):
         role: str,
         url: str,
         location: str = "Remote",
+        salary: str = "N/F",
         source: str = "",
         rating: int = 0,
         notes: str = "",
@@ -128,6 +153,7 @@ class GoogleSheetsTools(Toolkit):
             role: Job title/role
             url: URL to the job posting
             location: Job location (default: "Remote")
+            salary: Compensation/salary info (default: "N/F")
             source: Where the job was found (e.g., "linkedin", "glassdoor")
             rating: Calculated job rating score (default: 0)
             notes: Any additional notes about the job
@@ -139,6 +165,7 @@ class GoogleSheetsTools(Toolkit):
         if worksheet is None:
             return "Error: Could not access the Google Sheet. Check authentication."
 
+        logger.info(f"Agent adding job: {company} | {role} | {url}")
         try:
             # Ensure headers exist
             self._ensure_headers(worksheet)
@@ -151,7 +178,13 @@ class GoogleSheetsTools(Toolkit):
             if cell is not None:
                 return f"Job already exists in sheet at row {cell.row}"
 
-            # Row format: Date, Company, Role, Location, URL, Status, Notes, Source
+            # Match headers: Date, Role, Company, Location, Posting Link, Rating, Status, Source, Application Date, Resume, Cover Letter, Notes
+            
+            # Append Salary to notes if provided
+            final_notes = notes
+            if salary and salary != "N/F":
+                final_notes = f"{notes} | Salary: {salary}" if notes else f"Salary: {salary}"
+
             worksheet.append_row(
                 [
                     date_found,
@@ -159,13 +192,13 @@ class GoogleSheetsTools(Toolkit):
                     company,
                     location,
                     url,
-                    "Found",  # status
-                    "",  # source
-                    "",  # application date
-                    "",  # resume
-                    "",  # cover letter
-                    rating,  # rating
-                    "",  # notes
+                    rating,    # Rating is now at index 5
+                    "Found",   # Status at index 6
+                    source,
+                    "",        # Application Date
+                    "",        # Resume
+                    "",        # Cover Letter
+                    final_notes, # Notes at index 11
                 ]
             )
             return f"Successfully added '{role}' at '{company}' to the sheet."
@@ -248,6 +281,7 @@ class GoogleSheetsTools(Toolkit):
         if worksheet is None:
             return json.dumps({"error": "Could not access the Google Sheet"})
 
+        logger.info(f"Agent checking existence: {url}")
         try:
             cell = worksheet.find(url)
             if cell is not None:
@@ -259,13 +293,14 @@ class GoogleSheetsTools(Toolkit):
                         "row": cell.row,
                         "data": {
                             "date": row_data[0] if len(row_data) > 0 else "",
-                            "company": row_data[1] if len(row_data) > 1 else "",
-                            "role": row_data[2] if len(row_data) > 2 else "",
+                            "role": row_data[1] if len(row_data) > 1 else "",
+                            "company": row_data[2] if len(row_data) > 2 else "",
                             "location": row_data[3] if len(row_data) > 3 else "",
                             "url": row_data[4] if len(row_data) > 4 else "",
-                            "status": row_data[5] if len(row_data) > 5 else "",
-                            "notes": row_data[6] if len(row_data) > 6 else "",
+                            "rating": row_data[5] if len(row_data) > 5 else "",
+                            "status": row_data[6] if len(row_data) > 6 else "",
                             "source": row_data[7] if len(row_data) > 7 else "",
+                            "notes": row_data[11] if len(row_data) > 11 else "",
                         },
                     },
                     indent=2,
@@ -306,14 +341,16 @@ class GoogleSheetsTools(Toolkit):
         if worksheet is None:
             return "Error: Could not access the Google Sheet. Check authentication."
 
+        logger.info(f"Agent updating status: {url} -> {new_status}")
         try:
             cell = worksheet.find(url)
             if cell is None:
                 return f"Job URL not found in sheet: {url}"
 
             # Column indices (1-based)
-            status_col_index = 6
-            notes_col_index = 7
+            # 1: Date, 2: Role, 3: Company, 4: Location, 5: URL, 6: Rating, 7: Status, ..., 12: Notes
+            status_col_index = 7
+            notes_col_index = 12
 
             # Update status
             worksheet.update_cell(cell.row, status_col_index, new_status)
@@ -337,3 +374,69 @@ class GoogleSheetsTools(Toolkit):
         except Exception as e:
             logger.error(f"Error updating status: {e}")
             return f"Error updating status: {e}"
+
+    def read_google_doc(self, doc_id: str) -> str:
+        """
+        Reads the content of a Google Doc.
+        
+        Args:
+            doc_id: The ID of the Google Doc to read.
+            
+        Returns:
+            The text content of the document.
+        """
+        if not self.docs_service:
+             return "Error: Docs service not authenticated."
+             
+        try:
+            document = self.docs_service.documents().get(documentId=doc_id).execute()
+            content = ""
+            for element in document.get("body").get("content"):
+                if "paragraph" in element:
+                    elements = element.get("paragraph").get("elements")
+                    for elem in elements:
+                        if "textRun" in elem:
+                            content += elem.get("textRun").get("content")
+            return content
+        except Exception as e:
+            logger.error(f"Error reading Google Doc {doc_id}: {e}")
+            return f"Error reading document: {e}"
+
+    def read_pdf(self, file_id: str) -> str:
+        """
+        Reads text from a PDF stored in Google Drive.
+        
+        Args:
+            file_id: The ID of the file in Google Drive.
+            
+        Returns:
+            Extracted text from the PDF.
+        """
+        if not self.drive_service:
+            return "Error: Drive service not authenticated."
+            
+        try:
+            request = self.drive_service.files().get_media(fileId=file_id)
+            fh = io.BytesIO()
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
+            
+            fh.seek(0)
+            
+            # Use pypdf or similar to parse
+            # We need to make sure pypdf is installed
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(fh)
+                text = ""
+                for page in reader.pages:
+                    text += page.extract_text() + "\n"
+                return text
+            except ImportError:
+                 return "Error: pypdf library not installed. Cannot parse PDF."
+                 
+        except Exception as e:
+            logger.error(f"Error reading PDF {file_id}: {e}")
+            return f"Error reading PDF: {e}"

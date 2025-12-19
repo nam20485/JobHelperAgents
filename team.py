@@ -13,4 +13,5 @@ job_helper_team = Team(
         "Step 2: Ask the Tailor to process any new jobs found.",
         "Always report back to the user with a summary of actions taken.",
     ],
+    debug_mode=True,
 )

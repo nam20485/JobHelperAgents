@@ -37,11 +37,12 @@ job_finder_agent = JobHelperAgent(
     instructions=[
         "Use `find_jobs` to search for roles. Keep `results_wanted` to 10 to avoid rate limits.",
         "For each job found, check if it exists in the sheet using `check_job_exists`.",
-        "Add valid jobs to the Google Sheet using `add_job`. Ensure you pass the `rating` from the found job.",
+        "Add valid jobs to the Google Sheet using `add_job`. Ensure you pass the `rating` and `salary` from the found job (use 'N/F' if salary is missing).",
     ],
     # db=SqliteDb(db_file="agent.db"),  # Store conversations
     add_history_to_context=True,  # Remember previous messages
     markdown=True,
+    debug_mode=True,
 )
 
 resume_tailor_agent = JobHelperAgent(
@@ -50,12 +51,17 @@ resume_tailor_agent = JobHelperAgent(
     tools=[gs_tools],
     instructions=[
         "Use `get_new_jobs` to find jobs with status 'Found' or 'New'.",
-        "Update status to 'Tailoring' when you begin processing.",
-        "Update status to 'Tailored' when you finish processing.",
+        "For each job:",
+        "1. Update status to 'Tailoring'.",
+        "2. Read the candidate's Resume using `read_google_doc` (ID is in toolkit context).",
+        "3. Read the candidate's Cover Letter using `read_google_doc` (ID is in toolkit context).",
+        "4. Generate a tailored resume and cover letter based on the job description and candidate's experience.",
+        "5. Update the sheet with the tailored content (Resume column and Cover Letter column) and set status to 'Tailored'.",
     ],
     # db=SqliteDb(db_file="agent.db"),  # Store conversations
     add_history_to_context=True,  # Remember previous messages
     markdown=True,
+    debug_mode=True,
 )
 
 job_applicant_agent = JobHelperAgent(
@@ -70,4 +76,5 @@ job_applicant_agent = JobHelperAgent(
     # db=SqliteDb(db_file="agent.db"),  # Store conversations
     add_history_to_context=True,  # Remember previous messages
     markdown=True,
+    debug_mode=True,
 )
